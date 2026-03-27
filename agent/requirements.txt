@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+requests
+python-dotenv
+loguru
+pydantic
+langchain-core>=0.1.0
+weaviate-client
+openai

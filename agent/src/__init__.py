@@ -1,0 +1,1 @@
+"""Source code module for the hotel booking bot."""
