@@ -12,25 +12,20 @@ from fastapi.responses import HTMLResponse
 from loguru import logger
 
 from src.bot.tools import (
-    get_room_availability_room,
-    describe_room_to_guest,
-    get_total_booking_amount,
-    get_room_amenities,
-    send_booking_to_backend,
-    get_faq_answer,
-    get_travel_places,
-    web_search,
+    recommend_menu_tool,
+    get_food_item_tool,
+    manage_cart_tool,
+    view_cart_tool,
+    checkout_tool,
 )
 from schema import (
     ToolTextResponse,
-    RoomAvailabilityRequest,
-    DescribeRoomRequest,
-    RoomAmenitiesRequest,
-    TotalAmountRequest,
-    BookingRequest,
-    FAQRequest,
-    TravelInfoRequest,
-    WebSearchRequest,
+    RecommendMenuRequest,
+    GetFoodItemRequest,
+    ManageCartRequest,
+    ViewCartRequest,
+    CheckoutRequest,
+    CheckoutResponse,
 )
 
 
@@ -61,204 +56,124 @@ async def root():
     """Health check and API info endpoint."""
     return {
         "status": "running",
-        "message": "Rezolve Hotels Agent API",
+        "message": "Leon Agent API",
         "docs": "Visit /docs for interactive API documentation",
     }
 
 
-@app.post("/tools/room-availability", response_model=ToolTextResponse)
-async def room_availability_tool(payload: RoomAvailabilityRequest) -> ToolTextResponse:
+@app.post("/tools/recommend-menu", response_model=ToolTextResponse)
+async def recommend_menu_endpoint(payload: RecommendMenuRequest) -> ToolTextResponse:
     """
-    ElevenLabs HTTP tool: discover suitable rooms for given dates, guest count,
-    and optional amenity / room-name filters.
+    ElevenLabs HTTP tool: search menu items.
     """
     try:
-        text = get_room_availability_room.invoke(
+        text = recommend_menu_tool.invoke(
             {
-                "check_in_date": payload.check_in_date,
-                "check_out_date": payload.check_out_date,
-                "min_guests": payload.min_guests,
-                "amenities": payload.amenities,
-                "room_name": payload.room_name,
+                "session_id": payload.session_id,
+                "menu_id": payload.menu_id,
+                "query": payload.query,
+                "category": payload.category,
+                "tags": payload.tags,
+                "exclude_allergens": payload.exclude_allergens,
+                "dietary_options": payload.dietary_options,
+                "calories": payload.calories,
+                "calories_gt": payload.calories_gt,
+                "calories_lt": payload.calories_lt,
+                "min_price": payload.min_price,
+                "max_price": payload.max_price,
+                "alcoholic_only": payload.alcoholic_only,
+                "page": payload.page,
+                "page_size": payload.page_size,
+                "categories": payload.categories,
+                "dietary_options_list": payload.dietary_options_list,
+                "allergens": payload.allergens,
             }
         )
         return ToolTextResponse(response=str(text), actions=[])
     except Exception as e:
-        logger.error(f"/tools/room-availability failed: {e}")
-        raise HTTPException(status_code=500, detail="room-availability failed")
+        logger.error(f"/tools/recommend-menu failed: {e}")
+        raise HTTPException(status_code=500, detail="recommend-menu failed")
 
 
-@app.get("/tools/food-menu")
-async def get_food_menu() -> Dict[str, Any]:
+@app.post("/tools/get-food-item", response_model=ToolTextResponse)
+async def get_food_item_endpoint(payload: GetFoodItemRequest) -> ToolTextResponse:
     """
-    Return the current food and beverage menu defined in `food_menu.json`.
-
-    This can be used by the ElevenLabs HTTP tool so the agent can answer
-    guest questions about what’s available on the menu.
-    """
-    menu_path = (
-        Path(__file__).resolve().parent
-        / "src"
-        / "bot"
-        / "data"
-        / "food_menu.json"
-    )
-
-    try:
-        with menu_path.open("r", encoding="utf-8") as f:
-            menu_data = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Food menu file not found at {menu_path}")
-        raise HTTPException(status_code=500, detail="Food menu data not found")
-    except json.JSONDecodeError:
-        logger.error(f"Food menu file is not valid JSON at {menu_path}")
-        raise HTTPException(status_code=500, detail="Food menu data is invalid")
-
-    return menu_data
-
-
-@app.post("/tools/describe-room", response_model=ToolTextResponse)
-async def describe_room_tool(payload: DescribeRoomRequest) -> ToolTextResponse:
-    """
-    ElevenLabs HTTP tool: describe a specific room in concierge style.
+    ElevenLabs HTTP tool: fetch full details for one menu item.
     """
     try:
-        text = describe_room_to_guest.invoke({"room_name": payload.room_name})
+        text = get_food_item_tool.invoke({"session_id": payload.session_id, "menu_id": payload.menu_id, "item_id": payload.item_id})
         return ToolTextResponse(response=str(text), actions=[])
     except Exception as e:
-        logger.error(f"/tools/describe-room failed: {e}")
-        raise HTTPException(status_code=500, detail="describe-room failed")
+        logger.error(f"/tools/get-food-item failed: {e}")
+        raise HTTPException(status_code=500, detail="get-food-item failed")
 
 
-@app.post("/tools/room-amenities", response_model=ToolTextResponse)
-async def room_amenities_tool(payload: RoomAmenitiesRequest) -> ToolTextResponse:
+@app.post("/tools/manage-cart", response_model=ToolTextResponse)
+async def manage_cart_endpoint(payload: ManageCartRequest) -> ToolTextResponse:
     """
-    ElevenLabs HTTP tool: answer amenity and facilities questions for a specific room.
-
-    Use this when the guest asks what a particular room includes or whether
-    it has a specific feature, such as laundry services, a bathtub, or
-    kitchen facilities.
+    ElevenLabs HTTP tool: manage the cart.
     """
     try:
-        text = get_room_amenities.invoke(
+        text = manage_cart_tool.invoke(
             {
-                "room_name": payload.room_name,
-                "amenity_query": payload.amenity_query or "",
+                "session_id": payload.session_id,
+                "action": payload.action,
+                "items": payload.items,
             }
         )
         return ToolTextResponse(response=str(text), actions=[])
     except Exception as e:
-        logger.error(f"/tools/room-amenities failed: {e}")
-        raise HTTPException(status_code=500, detail="room-amenities failed")
+        logger.error(f"/tools/manage-cart failed: {e}")
+        raise HTTPException(status_code=500, detail="manage-cart failed")
 
 
-@app.post("/tools/total-amount", response_model=ToolTextResponse)
-async def total_amount_tool(payload: TotalAmountRequest) -> ToolTextResponse:
+@app.post("/tools/view-cart", response_model=ToolTextResponse)
+async def view_cart_endpoint(payload: ViewCartRequest) -> ToolTextResponse:
     """
-    ElevenLabs HTTP tool: calculate total booking amount as a number string.
-    """
-    try:
-        amount = get_total_booking_amount.invoke(
-            {
-                "room_name": payload.room_name,
-                "check_in_date": payload.check_in_date,
-                "check_out_date": payload.check_out_date,
-            }
-        )
-        return ToolTextResponse(response=str(amount), actions=[])
-    except Exception as e:
-        logger.error(f"/tools/total-amount failed: {e}")
-        raise HTTPException(status_code=500, detail="total-amount failed")
-
-
-@app.post("/tools/send-booking", response_model=ToolTextResponse)
-async def send_booking_tool(payload: BookingRequest) -> ToolTextResponse:
-    """
-    ElevenLabs HTTP tool: send completed booking to backend and return confirmation text.
+    ElevenLabs HTTP tool: view the current cart.
     """
     try:
-        text = send_booking_to_backend.invoke(
-            {
-                "customer_name": payload.customer_name or "",
-                "room_name": payload.room_name or "",
-                "check_in_date": payload.check_in_date or "",
-                "check_out_date": payload.check_out_date or "",
-                "num_guests": payload.num_guests,
-                "image_url": payload.image_url or "",
-                "phone_number": payload.phone_number or "",
-                "from_number": payload.from_number or "",
-            }
-        )
+        text = view_cart_tool.invoke({"session_id": payload.session_id})
         return ToolTextResponse(response=str(text), actions=[])
     except Exception as e:
-        logger.error(f"/tools/send-booking failed: {e}")
-        raise HTTPException(status_code=500, detail="send-booking failed")
+        logger.error(f"/tools/view-cart failed: {e}")
+        raise HTTPException(status_code=500, detail="view-cart failed")
 
 
-@app.post("/tools/faq", response_model=ToolTextResponse)
-async def faq_tool(payload: FAQRequest) -> ToolTextResponse:
+@app.post("/tools/checkout", response_model=CheckoutResponse)
+async def checkout_endpoint(payload: CheckoutRequest) -> CheckoutResponse:
     """
-    ElevenLabs HTTP tool: answer hotel FAQ-style questions.
-    """
-    try:
-        text = get_faq_answer.invoke({"query": payload.question})
-        return ToolTextResponse(response=str(text), actions=[])
-    except Exception as e:
-        logger.error(f"/tools/faq failed: {e}")
-        raise HTTPException(status_code=500, detail="faq failed")
-
-
-@app.post("/tools/travel-places", response_model=ToolTextResponse)
-async def travel_places_tool(payload: TravelInfoRequest) -> ToolTextResponse:
-    """
-    ElevenLabs HTTP tool: answer nearby places / attractions questions using Google Places.
+    ElevenLabs HTTP tool: proceed to checkout and send booking data to backend.
     """
     try:
-        text = get_travel_places.invoke({"query": payload.query})
-        return ToolTextResponse(response=str(text), actions=[])
-    except Exception as e:
-        logger.error(f"/tools/travel-places failed: {e}")
-        raise HTTPException(status_code=500, detail="travel-places failed")
+        result = checkout_tool.invoke({"session_id": payload.session_id})
 
-
-@app.post("/tools/web-search", response_model=ToolTextResponse)
-async def web_search_tool(payload: WebSearchRequest) -> ToolTextResponse:
-    """
-    ElevenLabs HTTP tool: unified web search with smart routing.
-
-    This tool is the single entry point Julia should use for:
-    - Normal web queries (handled by Serp API `web_search`), and
-    - Nearby / nearest place queries (handled by Google Places via `get_travel_places`).
-    """
-    try:
-        base_query = payload.query
-        location_context = (payload.location_context or "").strip()
-
-        if location_context:
-            combined_query = f"{base_query} near {location_context}"
+        # Parse the result from checkout_tool
+        if isinstance(result, dict):
+            return CheckoutResponse(
+                success=result.get("success", False),
+                action=result.get("action", "checkout_failed"),
+                booking_data=result.get("booking_data"),
+                backend_response=result.get("backend_response"),
+                error=result.get("error"),
+                message=result.get("message"),
+            )
         else:
-            combined_query = base_query
-
-        intent_hint = (payload.result_type or "generic").lower()
-        lower_q = base_query.lower()
-        is_places_like = any(
-            kw in lower_q
-            for kw in ["nearest", "closest", "nearby", "around here", "near the hotel"]
-        )
-
-        if intent_hint == "places" or is_places_like:
-            text = get_travel_places.invoke({"query": combined_query})
-            logger.info(f"Used Google Places for query: {combined_query}")
-            logger.info(f"Google Places response: {text}")
-        else:
-            text = web_search.invoke({"query": combined_query})
-            logger.info(f"Used SerpAPI web_search for query: {combined_query}")
-            logger.info(f"SerpAPI web_search response: {text}")
-
-        return ToolTextResponse(response=str(text), actions=[])
+            # Fallback for unexpected response format
+            return CheckoutResponse(
+                success=False,
+                action="checkout_failed",
+                error="Unexpected response format",
+                message="An unexpected error occurred during checkout."
+            )
     except Exception as e:
-        logger.error(f"/tools/web-search failed: {e}")
-        raise HTTPException(status_code=500, detail="web-search failed")
+        logger.error(f"/tools/checkout failed: {e}")
+        return CheckoutResponse(
+            success=False,
+            action="checkout_failed",
+            error=str(e),
+            message="Checkout failed due to an internal error."
+        )
 
 
 @app.post("/")

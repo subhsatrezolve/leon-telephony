@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from pydantic import BaseModel, Field
 
@@ -8,77 +8,52 @@ class ToolTextResponse(BaseModel):
     actions: list[Dict[str, Any]] = Field(default_factory=list)
 
 
-class RoomAvailabilityRequest(BaseModel):
-    check_in_date: str = Field(..., description="Check-in date in YYYY-MM-DD")
-    check_out_date: str = Field(..., description="Check-out date in YYYY-MM-DD")
-    min_guests: int = Field(1, description="Minimum number of guests")
-    amenities: Optional[str] = Field(
-        None,
-        description=(
-            "Optional comma-separated list of amenity keywords to filter rooms by, "
-            "e.g. 'bathtub,sea view,kitchen'. Leave empty to ignore amenity filtering."
-        ),
-    )
-    room_name: Optional[str] = Field(
-        None,
-        description=(
-            "Optional room name or partial name text to search for, "
-            "e.g. 'suite', 'ocean view'. Leave empty for general availability."
-        ),
-    )
+class RecommendMenuRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID")
+    menu_id: Optional[int] = Field(None, description="Menu ID")
+    query: Optional[str] = Field(None, description="Free-text nearest-match search")
+    category: Optional[str] = Field(None, description="Menu section name")
+    tags: Optional[str] = Field(None, description="Comma-separated tag values")
+    exclude_allergens: Optional[str] = Field(None, description="Comma-separated allergen names")
+    dietary_options: Optional[str] = Field(None, description="Comma-separated dietary labels")
+    calories: Optional[int] = Field(None, description="Exact calorie count")
+    calories_gt: Optional[int] = Field(None, description="Minimum calories")
+    calories_lt: Optional[int] = Field(None, description="Maximum calories")
+    min_price: Optional[float] = Field(None, description="Minimum price")
+    max_price: Optional[float] = Field(None, description="Maximum price")
+    alcoholic_only: Optional[bool] = Field(None, description="Only alcoholic items")
+    page: int = Field(1, description="Page number")
+    page_size: int = Field(5, description="Items per page")
+    categories: list[str] = Field(default_factory=list, description="Dynamic list of categories")
+    dietary_options_list: list[str] = Field(default_factory=list, description="Dynamic list of dietary options")
+    allergens: list[str] = Field(default_factory=list, description="Dynamic list of allergens")
 
 
-class DescribeRoomRequest(BaseModel):
-    room_name: str = Field(..., description="Room name to describe")
+class GetFoodItemRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID")
+    menu_id: Optional[int] = Field(None, description="Menu ID")
+    item_id: int = Field(..., description="Product ID")
 
 
-class RoomAmenitiesRequest(BaseModel):
-    room_name: str = Field(..., description="Room name to get amenities for")
-    amenity_query: Optional[str] = Field(
-        "",
-        description="Specific amenity the guest is asking about (e.g. 'laundry', 'bathtub', 'kitchen', 'wifi'). Leave empty for a general amenities overview.",
-    )
+class ManageCartRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID")
+    action: str = Field(..., description="Action: add, remove, update, clear")
+    items: Optional[str] = Field(None, description="JSON string of items")
 
 
-class TotalAmountRequest(BaseModel):
-    room_name: str
-    check_in_date: str
-    check_out_date: str
+class ViewCartRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID")
 
 
-class BookingRequest(BaseModel):
-    customer_name: Optional[str] = ""
-    room_name: Optional[str] = ""
-    check_in_date: Optional[str] = ""
-    check_out_date: Optional[str] = ""
-    num_guests: int = 1
-    image_url: Optional[str] = ""
-    phone_number: Optional[str] = ""
-    from_number: Optional[str] = ""
+class CheckoutRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID")
 
 
-class FAQRequest(BaseModel):
-    question: str
-
-
-class TravelInfoRequest(BaseModel):
-    query: str
-
-
-class WebSearchRequest(BaseModel):
-    query: str = Field(
-        ...,
-        description="Natural-language web search query the agent wants answered.",
-    )
-    location_context: Optional[str] = Field(
-        "",
-        description=(
-            "Optional location context for nearby/nearest queries, e.g. "
-            "'Rezolve Hotel, 2 E 61st Street, New York, NY 10065'."
-        ),
-    )
-    result_type: Optional[str] = Field(
-        "generic",
-        description='Optional routing hint: "generic" (default) or "places" for nearby/nearest lookups.',
-    )
+class CheckoutResponse(BaseModel):
+    success: bool = Field(..., description="Whether checkout was successful")
+    action: str = Field(..., description="Action taken: checkout_completed or checkout_failed")
+    booking_data: Optional[Dict[str, Any]] = Field(None, description="Booking data sent to backend")
+    backend_response: Optional[Dict[str, Any]] = Field(None, description="Response from backend payment service")
+    error: Optional[str] = Field(None, description="Error message if checkout failed")
+    message: Optional[str] = Field(None, description="User-friendly message")
 
